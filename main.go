@@ -1,88 +1,143 @@
 package main
 
 import (
+	"image"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
-// Game struct to hold game state and window dimensions
+const (
+	iconSize      = 32
+	iconMargin    = 8
+	toolbarHeight = iconSize + 2*iconMargin
+)
+
 type Game struct {
-	width     int
-	height    int
-	isDrawing bool // Flag to indicate if drawing is in progress
-	prevX     int  // Previous mouse X position
-	prevY     int  // Previous mouse Y position
-	background *ebiten.Image // Background image
-	drawing    *ebiten.Image // Drawing image
-	
+	width, height int
+	mode          string // "brush" or "idle"
+	isDrawing     bool
+	leftPressedLast bool
+	prevX, prevY  int
+	background    *ebiten.Image
+	drawing       *ebiten.Image
+
+	brushIcon image.Rectangle
+	clearIcon image.Rectangle
 }
 
-// NewGame creates a new Game instance with specified dimensions
-func NewGame(width, height int) *Game {
-	background := ebiten.NewImage(width, height)
-	background.Fill(color.White) // White background
+func NewGame(w, h int) *Game {
+	bg := ebiten.NewImage(w, h)
+	bg.Fill(color.White)
 
-	drawing := ebiten.NewImage(width, height)
-	drawing.Fill(color.White) // White drawing image
+	drw := ebiten.NewImage(w, h)
+	drw.Fill(color.White)
 
-	return &Game{
-		width:    width,
-		height:   height,
-		background: background,
-		drawing:   drawing,
+	g := &Game{
+		width:      w,
+		height:     h,
+		mode:       "idle",
+		background: bg,
+		drawing:    drw,
 	}
+
+	g.brushIcon = image.Rect(iconMargin, iconMargin,
+		iconMargin+iconSize, iconMargin+iconSize)
+	g.clearIcon = image.Rect(2*iconMargin+iconSize, iconMargin,
+		2*iconMargin+2*iconSize, iconMargin+iconSize)
+
+	return g
 }
 
-// Update is called once per frame. It is used to advance the game state.
 func (g *Game) Update() error {
-	g.drawBrush()
+	// --- toolbar / icon clicks ---
+	leftPressedNow := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+justPressed := leftPressedNow && !g.leftPressedLast
+g.leftPressedLast = leftPressedNow
+
+	if justPressed {
+		if g.mode == "idle" {
+			g.mode = "brush"
+			return nil
+}
+		x, y := ebiten.CursorPosition()
+
+		// toolbar strip
+		if y < toolbarHeight {
+			if image.Pt(x, y).In(g.brushIcon) {
+				g.mode = "brush"
+				return nil
+			}
+			if image.Pt(x, y).In(g.clearIcon) {
+				g.drawing.Fill(color.White)
+				return nil
+			}
+		}
+
+		// start stroke
+		if g.mode == "brush" {
+			g.isDrawing = true
+			g.prevX, g.prevY = x, y
+		}
+	}
+
+	// --- stroke continuation ---
+	if g.mode == "brush" && g.isDrawing &&
+		ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		g.drawStroke()
+	} else {
+		g.isDrawing = false
+	}
 	return nil
 }
 
-// Draw is called once per frame to render the game. It draws the background and the drawing image.
-func (g *Game) Draw(screen *ebiten.Image) {
-    screen.DrawImage(g.background, &ebiten.DrawImageOptions{})
-    screen.DrawImage(g.drawing, &ebiten.DrawImageOptions{})
-}
-
-func (g *Game) drawBrush() {
-	// Get the current mouse position
+func (g *Game) drawStroke() {
 	x, y := ebiten.CursorPosition()
-
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		if !g.isDrawing {
-			// Start drawing, set the previous position to the current position
-			g.prevX, g.prevY = x, y
-			g.isDrawing = true
-		}  else {
-            // only draw once per mouse-move
-            if x != g.prevX || y != g.prevY {
-                ebitenutil.DrawLine(g.drawing,
-                    float64(g.prevX), float64(g.prevY),
-                    float64(x), float64(y),
-                    color.Black)
-                g.prevX, g.prevY = x, y
-            }
-        }
-    } else {
-        g.isDrawing = false
-    }
+	if x == g.prevX && y == g.prevY {
+		return
+	}
+	ebitenutil.DrawLine(g.drawing,
+		float64(g.prevX), float64(g.prevY),
+		float64(x), float64(y), color.Black)
+	g.prevX, g.prevY = x, y
 }
 
-// Layout takes the outside dimensions of the window and returns the dimensions
-// of the game. This function is used to specify the logical size of the game
-// screen.
-func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+func (g *Game) Draw(screen *ebiten.Image) {
+	// canvas
+	screen.DrawImage(g.background, nil)
+	screen.DrawImage(g.drawing, nil)
+
+	// --- toolbar background ---
+	tb := ebiten.NewImage(g.width, toolbarHeight)
+	tb.Fill(color.RGBA{220, 220, 220, 255})
+	screen.DrawImage(tb, &ebiten.DrawImageOptions{})
+
+	// --- brush icon ---
+	brushImg := ebiten.NewImage(iconSize, iconSize)
+	if g.mode == "brush" {
+		brushImg.Fill(color.RGBA{150, 150, 255, 255}) // highlight
+	} else {
+		brushImg.Fill(color.White)
+	}
+	ebitenutil.DrawRect(brushImg, 2, 2, iconSize-4, iconSize-4, color.Black)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(g.brushIcon.Min.X), float64(g.brushIcon.Min.Y))
+	screen.DrawImage(brushImg, op)
+
+	// --- clear icon ---
+	clearImg := ebiten.NewImage(iconSize, iconSize)
+	clearImg.Fill(color.White)
+	ebitenutil.DebugPrintAt(clearImg, "C", iconSize/2-4, iconSize/2-6)
+	op = &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(g.clearIcon.Min.X), float64(g.clearIcon.Min.Y))
+	screen.DrawImage(clearImg, op)
+}
+
+func (g *Game) Layout(ow, oh int) (int, int) {
 	return g.width, g.height
 }
 
-// main is the entry point for the executable.
-//
-// It creates a new Game with a resolution of 1024x768, and then passes it to
-// ebiten.RunGame to start the game loop. If there is an error initializing the
-// game, it will panic with that error.
 func main() {
 	ebiten.SetWindowSize(1020, 668)
 	ebiten.SetWindowTitle("Simple painting app")
