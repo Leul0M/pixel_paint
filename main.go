@@ -7,6 +7,8 @@ package main
 import (
 	"image"
 	"image/color"
+	"image/png"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -37,6 +39,7 @@ type Game struct {
 	brushIcon  image.Rectangle
 	eraserIcon image.Rectangle
 	clearIcon  image.Rectangle
+	saveIcon   image.Rectangle
 }
 
 /* ---------- constructor ---------- */
@@ -62,6 +65,8 @@ func NewGame(w, h int) *Game {
 		2*iconMargin+2*iconSize, iconMargin+iconSize)
 	g.clearIcon = image.Rect(3*iconMargin+2*iconSize, iconMargin,
 		3*iconMargin+3*iconSize, iconMargin+iconSize)
+	g.saveIcon = image.Rect(4*iconMargin+3*iconSize, iconMargin,
+		4*iconMargin+4*iconSize, iconMargin+iconSize)
 
 	return g
 }
@@ -128,6 +133,9 @@ func (g *Game) handleClick() {
 		case image.Pt(x, y).In(g.clearIcon):
 			g.drawing.Fill(color.White)
 			return
+		case image.Pt(x, y).In(g.saveIcon):
+			g.save()
+			return
 		}
 	}
 
@@ -155,6 +163,25 @@ func (g *Game) continueStroke() {
 	g.prevX, g.prevY = x, y
 }
 
+func (g *Game) save() {
+	// Create an image the size of the whole canvas
+	full := ebiten.NewImage(g.width, g.height)
+	full.DrawImage(g.background, nil)
+	full.DrawImage(g.drawing, nil)
+
+	// Encode to PNG
+	f, err := os.Create("output.png")
+	if err != nil {
+		println("save failed:", err.Error())
+		return
+	}
+	defer f.Close()
+
+	if err := png.Encode(f, full); err != nil {
+		println("save failed:", err.Error())
+	}
+}
+
 func (g *Game) drawToolbar(screen *ebiten.Image) {
 	// background
 	tb := ebiten.NewImage(g.width, toolbarHeight)
@@ -179,6 +206,7 @@ func (g *Game) drawToolbar(screen *ebiten.Image) {
 	drawIcon(g.brushIcon, "B", g.mode == "brush", color.RGBA{150, 150, 255, 255})
 	drawIcon(g.eraserIcon, "E", g.mode == "eraser", color.RGBA{255, 150, 150, 255})
 	drawIcon(g.clearIcon, "C", false, color.White)
+	drawIcon(g.saveIcon, "S", false, color.White)
 }
 
 /* ---------- entry point ---------- */
