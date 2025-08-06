@@ -37,22 +37,17 @@ func NewGame(width, height int) *Game {
 
 // Update is called once per frame. It is used to advance the game state.
 func (g *Game) Update() error {
+	g.drawBrush()
 	return nil
 }
 
 // Draw is called once per frame to render the game. It draws the background and the drawing image.
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Draw the background image on the screen
-	screen.DrawImage(g.background, &ebiten.DrawImageOptions{})
-
-	// Draw the drawing image on the screen
-	screen.DrawImage(g.drawing, &ebiten.DrawImageOptions{})
-
-	// Draw the brush at the current mouse position
-	g.DrawBrush()
+    screen.DrawImage(g.background, &ebiten.DrawImageOptions{})
+    screen.DrawImage(g.drawing, &ebiten.DrawImageOptions{})
 }
 
-func (g *Game) DrawBrush() {
+func (g *Game) drawBrush() {
 	// Get the current mouse position
 	x, y := ebiten.CursorPosition()
 
@@ -61,16 +56,19 @@ func (g *Game) DrawBrush() {
 			// Start drawing, set the previous position to the current position
 			g.prevX, g.prevY = x, y
 			g.isDrawing = true
-		} else {
-			// Draw a line from the previous mouse position to the current mouse position
-			ebitenutil.DrawLine(g.drawing, float64(g.prevX), float64(g.prevY), float64(x), float64(y), color.Black)
-			// Update the previous mouse position
-			g.prevX, g.prevY = x, y
-		}
-	} else {
-		// Reset the drawing flag when the mouse button is released
-		g.isDrawing = false
-	}
+		}  else {
+            // only draw once per mouse-move
+            if x != g.prevX || y != g.prevY {
+                ebitenutil.DrawLine(g.drawing,
+                    float64(g.prevX), float64(g.prevY),
+                    float64(x), float64(y),
+                    color.Black)
+                g.prevX, g.prevY = x, y
+            }
+        }
+    } else {
+        g.isDrawing = false
+    }
 }
 
 // Layout takes the outside dimensions of the window and returns the dimensions
