@@ -15,13 +15,13 @@ const (
 )
 
 type Game struct {
-	width, height int
-	mode          string // "brush" or "idle"
-	isDrawing     bool
+	width, height   int
+	mode            string // "brush" or "idle"
+	isDrawing       bool
 	leftPressedLast bool
-	prevX, prevY  int
-	background    *ebiten.Image
-	drawing       *ebiten.Image
+	prevX, prevY    int
+	background      *ebiten.Image
+	drawing         *ebiten.Image
 
 	brushIcon image.Rectangle
 	clearIcon image.Rectangle
@@ -53,14 +53,14 @@ func NewGame(w, h int) *Game {
 func (g *Game) Update() error {
 	// --- toolbar / icon clicks ---
 	leftPressedNow := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-justPressed := leftPressedNow && !g.leftPressedLast
-g.leftPressedLast = leftPressedNow
+	justPressed := leftPressedNow && !g.leftPressedLast
+	g.leftPressedLast = leftPressedNow
 
 	if justPressed {
 		if g.mode == "idle" {
 			g.mode = "brush"
 			return nil
-}
+		}
 		x, y := ebiten.CursorPosition()
 
 		// toolbar strip
@@ -134,14 +134,32 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(clearImg, op)
 }
 
-func (g *Game) Layout(ow, oh int) (int, int) {
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	// Early-exit if nothing changed
+	if outsideWidth == g.width && outsideHeight == g.height {
+		return g.width, g.height
+	}
+
+	// Create fresh images at the new size
+	newBg := ebiten.NewImage(outsideWidth, outsideHeight)
+	newBg.Fill(color.White) // ensure no transparency
+	newBg.DrawImage(g.background, &ebiten.DrawImageOptions{})
+
+	newDrw := ebiten.NewImage(outsideWidth, outsideHeight)
+	newDrw.Fill(color.White)
+	newDrw.DrawImage(g.drawing, &ebiten.DrawImageOptions{})
+
+	g.background, g.drawing = newBg, newDrw
+	g.width, g.height = outsideWidth, outsideHeight
+
 	return g.width, g.height
 }
 
 func main() {
 	ebiten.SetWindowSize(1020, 668)
 	ebiten.SetWindowTitle("Simple painting app")
-	if err := ebiten.RunGame(NewGame(640, 480)); err != nil {
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	if err := ebiten.RunGame(NewGame(1020, 668)); err != nil {
 		panic(err)
 	}
 }
