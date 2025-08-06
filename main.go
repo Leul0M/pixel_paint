@@ -16,6 +16,7 @@ type Game struct {
 	prevY     int  // Previous mouse Y position
 	background *ebiten.Image // Background image
 	drawing    *ebiten.Image // Drawing image
+	
 }
 
 // NewGame creates a new Game instance with specified dimensions
