@@ -1,7 +1,3 @@
-// A minimal single-file paint program with:
-//   - resizable window
-//   - toolbar: Brush (black)  Eraser (white)  Clear (C)
-//   - left-drag to draw/erase when tool active
 package main
 
 import (
@@ -19,7 +15,14 @@ import (
 const (
 	iconSize      = 32
 	iconMargin    = 8
-	toolbarHeight = iconSize + 2*iconMargin
+	paletteCols   = 8
+	paletteRows   = 2
+	swatchSize    = 24
+	palettePad    = 4
+
+	// Top bar height (toolbar + palette)
+	topBarHeight = iconSize + 2*iconMargin + paletteRows*(swatchSize+palettePad) + palettePad
+	paletteTop   = iconSize + 2*iconMargin + palettePad
 )
 
 /* ---------- game state ---------- */
@@ -27,7 +30,8 @@ const (
 type Game struct {
 	width, height int
 
-	mode            string // "brush" | "eraser"
+	mode            string // "" | "brush" | "eraser"
+	currentColor    color.Color
 	isDrawing       bool
 	leftPressedLast bool
 	prevX, prevY    int
@@ -35,11 +39,14 @@ type Game struct {
 	background *ebiten.Image // solid white underlay
 	drawing    *ebiten.Image // user strokes
 
-	// toolbar rectangles (screen space)
+	// toolbar rectangles
 	brushIcon  image.Rectangle
 	eraserIcon image.Rectangle
 	clearIcon  image.Rectangle
 	saveIcon   image.Rectangle
+
+	// palette
+	palette []color.Color
 }
 
 /* ---------- constructor ---------- */
@@ -47,18 +54,38 @@ type Game struct {
 func NewGame(w, h int) *Game {
 	bg := ebiten.NewImage(w, h)
 	bg.Fill(color.White)
-
 	drw := ebiten.NewImage(w, h)
 	drw.Fill(color.White)
 
 	g := &Game{
-		width:      w,
-		height:     h,
-		background: bg,
-		drawing:    drw,
+		width:         w,
+		height:        h,
+		background:    bg,
+		drawing:       drw,
+		currentColor:  color.Black,
 	}
 
-	// icon positions
+	// fixed 16-colour palette
+	g.palette = []color.Color{
+		color.Black,
+		color.RGBA{127, 0, 0, 255},
+		color.RGBA{0, 127, 0, 255},
+		color.RGBA{0, 0, 127, 255},
+		color.RGBA{127, 127, 0, 255},
+		color.RGBA{127, 0, 127, 255},
+		color.RGBA{0, 127, 127, 255},
+		color.RGBA{127, 127, 127, 255},
+		color.White,
+		color.RGBA{255, 0, 0, 255},
+		color.RGBA{0, 255, 0, 255},
+		color.RGBA{0, 0, 255, 255},
+		color.RGBA{255, 255, 0, 255},
+		color.RGBA{255, 0, 255, 255},
+		color.RGBA{0, 255, 255, 255},
+		color.RGBA{255, 255, 255, 255},
+	}
+
+	// toolbar icon positions
 	g.brushIcon = image.Rect(iconMargin, iconMargin,
 		iconMargin+iconSize, iconMargin+iconSize)
 	g.eraserIcon = image.Rect(2*iconMargin+iconSize, iconMargin,
@@ -93,10 +120,15 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(g.background, nil)
 	screen.DrawImage(g.drawing, nil)
-	g.drawToolbar(screen)
-}
 
-/* ---------- layout & resize ---------- */
+	// Draw top bar background (toolbar + palette)
+	topBar := ebiten.NewImage(g.width, topBarHeight)
+	topBar.Fill(color.RGBA{220, 220, 220, 255})
+	screen.DrawImage(topBar, nil)
+
+	g.drawToolbar(screen)
+	g.drawPalette(screen)
+}
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	if outsideWidth == g.width && outsideHeight == g.height {
@@ -122,7 +154,7 @@ func (g *Game) handleClick() {
 	x, y := ebiten.CursorPosition()
 
 	// toolbar clicks
-	if y < toolbarHeight {
+	if y < iconSize+2*iconMargin {
 		switch {
 		case image.Pt(x, y).In(g.brushIcon):
 			g.mode = "brush"
@@ -139,20 +171,38 @@ func (g *Game) handleClick() {
 		}
 	}
 
-	// start stroke on canvas when a tool is active
+	// palette colour pick
+	if y >= paletteTop && y < paletteTop+paletteRows*(swatchSize+palettePad) {
+		idx := (y-paletteTop)/(swatchSize+palettePad)*paletteCols +
+			(x - palettePad) / (swatchSize + palettePad)
+		if idx >= 0 && idx < len(g.palette) {
+			g.currentColor = g.palette[idx]
+			return
+		}
+	}
+
+	// start stroke on canvas when a tool is active (only below top bar)
 	if g.mode == "brush" || g.mode == "eraser" {
-		g.isDrawing = true
-		g.prevX, g.prevY = x, y
+		if y > topBarHeight {
+			g.isDrawing = true
+			g.prevX, g.prevY = x, y
+		}
 	}
 }
 
 func (g *Game) continueStroke() {
 	x, y := ebiten.CursorPosition()
+
+	// prevent drawing inside top bar
+	if y <= topBarHeight {
+		return
+	}
+
 	if x == g.prevX && y == g.prevY {
 		return
 	}
 
-	col := color.Black
+	col := g.currentColor
 	if g.mode == "eraser" {
 		col = color.White
 	}
@@ -164,31 +214,22 @@ func (g *Game) continueStroke() {
 }
 
 func (g *Game) save() {
-	// Create an image the size of the whole canvas
 	full := ebiten.NewImage(g.width, g.height)
 	full.DrawImage(g.background, nil)
 	full.DrawImage(g.drawing, nil)
 
-	// Encode to PNG
 	f, err := os.Create("output.png")
 	if err != nil {
 		println("save failed:", err.Error())
 		return
 	}
 	defer f.Close()
-
 	if err := png.Encode(f, full); err != nil {
 		println("save failed:", err.Error())
 	}
 }
 
 func (g *Game) drawToolbar(screen *ebiten.Image) {
-	// background
-	tb := ebiten.NewImage(g.width, toolbarHeight)
-	tb.Fill(color.RGBA{220, 220, 220, 255})
-	screen.DrawImage(tb, nil)
-
-	// helper to draw one icon
 	drawIcon := func(rect image.Rectangle, label string, active bool, activeCol color.Color) {
 		img := ebiten.NewImage(iconSize, iconSize)
 		if active {
@@ -209,11 +250,31 @@ func (g *Game) drawToolbar(screen *ebiten.Image) {
 	drawIcon(g.saveIcon, "S", false, color.White)
 }
 
+func (g *Game) drawPalette(screen *ebiten.Image) {
+	// swatches
+	for i, col := range g.palette {
+		x := palettePad + (i%paletteCols)*(swatchSize+palettePad)
+		y := paletteTop + (i/paletteCols)*(swatchSize+palettePad)
+		sq := ebiten.NewImage(swatchSize, swatchSize)
+		sq.Fill(col)
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(x), float64(y))
+		screen.DrawImage(sq, op)
+	}
+
+	// preview square
+	preview := ebiten.NewImage(swatchSize, swatchSize)
+	preview.Fill(g.currentColor)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(palettePad+(paletteCols+1)*(swatchSize+palettePad)), float64(paletteTop))
+	screen.DrawImage(preview, op)
+}
+
 /* ---------- entry point ---------- */
 
 func main() {
 	ebiten.SetWindowSize(1020, 668)
-	ebiten.SetWindowTitle("Simple paint – B=brush  E=eraser  C=clear")
+	ebiten.SetWindowTitle("Simple paint – B=brush  E=eraser  C=clear  S=save")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(NewGame(1020, 668)); err != nil {
 		panic(err)
