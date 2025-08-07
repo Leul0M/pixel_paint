@@ -85,7 +85,12 @@ func NewGame(w, h int) *Game {
 	g.clearIcon = image.Rect(3*iconMargin+2*iconSize, iconMargin, 3*iconMargin+3*iconSize, iconMargin+iconSize)
 	g.saveIcon = image.Rect(4*iconMargin+3*iconSize, iconMargin, 4*iconMargin+4*iconSize, iconMargin+iconSize)
 
-	g.sliderTrack = image.Rect(iconMargin, topBarHeight-10, iconMargin+sliderW, topBarHeight-10+sliderH)
+	// Place slider and palette on the right
+	rightPad := 24
+	sliderX := w - sliderW - rightPad
+	sliderY := iconMargin + paletteRows*(swatchSize+palettePad) + 16 // match drawUI
+
+	g.sliderTrack = image.Rect(sliderX, sliderY, sliderX+sliderW, sliderY+sliderH)
 	g.updateSliderKnob()
 	return g
 }
@@ -155,15 +160,19 @@ func (g *Game) handleClick() {
 			g.save()
 			return
 		}
+		rightPad := 24
+		paletteX := g.width - paletteCols*(swatchSize+palettePad) - rightPad
+		paletteY := iconMargin
 		for i, col := range g.palette {
-			px := palettePad + (i%paletteCols)*(swatchSize+palettePad)
-			py := iconSize + 2*iconMargin + palettePad + (i/paletteCols)*(swatchSize+palettePad)
+			px := paletteX + (i%paletteCols)*(swatchSize+palettePad)
+			py := paletteY + (i/paletteCols)*(swatchSize+palettePad)
 			if x >= px && x < px+swatchSize && y >= py && y < py+swatchSize {
 				g.currentColor = col
 				return
 			}
 		}
-		if image.Pt(x, y).In(g.sliderTrack) || image.Pt(x, y).In(g.sliderKnob) {
+		sliderY := iconMargin + paletteRows*(swatchSize+palettePad) + 16
+		if y >= sliderY && y < sliderY+sliderH && x >= g.sliderTrack.Min.X && x < g.sliderTrack.Max.X {
 			ratio := float64(x-g.sliderTrack.Min.X) / float64(sliderW)
 			val := int(ratio*(maxWidth-minWidth)+0.5) + minWidth
 			if val < minWidth {
@@ -236,10 +245,13 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 	drawRect(g.clearIcon, "C", false, color.White)
 	drawRect(g.saveIcon, "S", false, color.White)
 
-	// palette
+	// palette (top right)
+	rightPad := 24
+	paletteX := g.width - paletteCols*(swatchSize+palettePad) - rightPad
+	paletteY := iconMargin // move palette to top bar
 	for i, col := range g.palette {
-		x := palettePad + (i%paletteCols)*(swatchSize+palettePad)
-		y := iconSize + 2*iconMargin + palettePad + (i/paletteCols)*(swatchSize+palettePad)
+		x := paletteX + (i%paletteCols)*(swatchSize+palettePad)
+		y := paletteY + (i/paletteCols)*(swatchSize+palettePad)
 		sq := ebiten.NewImage(swatchSize, swatchSize)
 		sq.Fill(col)
 		op := &ebiten.DrawImageOptions{}
@@ -247,16 +259,17 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 		screen.DrawImage(sq, op)
 	}
 
-	// slider
+	// slider (right side, below palette)
+	sliderY := paletteY + paletteRows*(swatchSize+palettePad) + 16 // 16px gap below palette
 	track := ebiten.NewImage(sliderW, sliderH)
 	track.Fill(color.Gray{160})
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(g.sliderTrack.Min.X), float64(g.sliderTrack.Min.Y))
+	op.GeoM.Translate(float64(g.sliderTrack.Min.X), float64(sliderY))
 	screen.DrawImage(track, op)
 	knob := ebiten.NewImage(handleW, handleW)
 	knob.Fill(color.Gray{80})
 	op = &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(g.sliderKnob.Min.X), float64(g.sliderKnob.Min.Y))
+	op.GeoM.Translate(float64(g.sliderKnob.Min.X), float64(sliderY-handleW/2+sliderH/2))
 	screen.DrawImage(knob, op)
 }
 
