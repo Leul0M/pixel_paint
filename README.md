@@ -73,6 +73,6 @@ Here are some ideas for future enhancements:
 - 📱 **Touch Support:** Make the app work on touch devices.
 - 🧹 **Undo/Redo:** Add undo and redo functionality.
 - 💾 **Auto-Save:** Automatically save progress at intervals.
-- 🌐 **Online Collaboration:** Allow multiple users to draw together in real time.
+- 😭 **Fixing the UI** need some othe colors and dark theme
 
 Feel free to contribute or
