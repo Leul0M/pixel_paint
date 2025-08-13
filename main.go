@@ -271,6 +271,20 @@ func (g *Game) drawUI(screen *ebiten.Image) {
 	op = &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(g.sliderKnob.Min.X), float64(sliderY-handleW/2+sliderH/2))
 	screen.DrawImage(knob, op)
+	g.drawCursor(screen)
+}
+
+func (g *Game) drawCursor(screen *ebiten.Image) {
+	x, y := ebiten.CursorPosition()
+	if y <= topBarHeight {
+		return // Only show in drawing area
+	}
+	size := g.brushSize
+	sq := ebiten.NewImage(size, size)
+	sq.Fill(color.RGBA{127, 0, 0, 255}) // semi-transparent black
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x-size/2), float64(y-size/2))
+	screen.DrawImage(sq, op)
 }
 
 /* ---------- entry point ---------- */
