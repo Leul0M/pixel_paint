@@ -290,7 +290,7 @@ func (g *Game) drawCursor(screen *ebiten.Image) {
 /* ---------- entry point ---------- */
 func main() {
 	ebiten.SetWindowSize(1020, 668)
-	ebiten.SetWindowTitle("Modern Paint – B/E/C/S + palette + slider")
+	ebiten.SetWindowTitle("Modern Pixel Paint")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(NewGame(1020, 668)); err != nil {
 		panic(err)
