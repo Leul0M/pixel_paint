@@ -38,7 +38,7 @@ Features a fixed top bar with tool icons, a color palette, and a brush size slid
 
 ## Screenshot
 
-![screenshot](screenshot.png) <!-- Add a screenshot if available -->
+![screenshot](https://github.com/Leul0M/pixel_paint/blob/main/Screenshot.png) <!-- Add a screenshot if available -->
 
 ## License
 
