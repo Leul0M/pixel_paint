@@ -61,3 +61,18 @@ MIT License
 ---
 
 Made with ❤️ using
+## 💡 Possible Improvements
+
+Here are some ideas for future enhancements:
+
+- 🖍️ **Custom Color Picker:** Allow users to choose any color, not just from the preset palette.
+- 🧩 **Shape Tools:** Add support for drawing lines, rectangles, circles, etc.
+- 🖼️ **Image Import/Export:** Enable loading images to edit and exporting in different formats.
+- 🗂️ **Multiple Layers:** Support for multiple drawing layers.
+- 🕹️ **Keyboard Shortcuts:** Add more shortcuts for faster workflow.
+- 📱 **Touch Support:** Make the app work on touch devices.
+- 🧹 **Undo/Redo:** Add undo and redo functionality.
+- 💾 **Auto-Save:** Automatically save progress at intervals.
+- 🌐 **Online Collaboration:** Allow multiple users to draw together in real time.
+
+Feel free to contribute or
